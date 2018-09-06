@@ -20,16 +20,14 @@ def obtain_blocks(file):
 
 def compare_blocks(base_block, new_blocks_list):
     blocks = []
-    # print(base_block)
     for block in new_blocks_list:
         if overlapped(base_block, block):
             if percentage_overlapped(base_block, block) > 80:
-                # print('\t', end = '')
-                # print(block)
+                # Update block (only the part overlapped)
                 blocks.append(block)
     return blocks
     
-# Pensar en forma de que no sea estricto
+# Think of a way to make it non-strict (?)
 def overlapped(block_a, block_b):
     return int(block_a[1]) <= int(block_b[2]) and int(block_b[0]) <= int(block_a[3])
 
@@ -48,28 +46,17 @@ def recursive_overlap_checking(files, index, current_blocks, report, name, min_d
     if index >= min_depth:
         for block in current_blocks:
             print(report + name + '\t' + str(block) + '\n')
-    else:
+    if index < len(files):
         new_comparison_blocks = obtain_blocks(files[index])
-        # for block in new_comparison_blocks:
-        #     print(str(block))
-        # print('_____')
         new_name = get_comparison_name(files[index])
         for block in current_blocks:
             new_blocks = compare_blocks(block, new_comparison_blocks)
-            # print('||| Deciding whether to call the recursive function |||')
-            # print(name)
-            # print(block)
-            # print(new_blocks)
-            # print('|||||||||||||||||||||||||||||||||||||||||||||||||||||||')
             if new_blocks != []:
-                # print('||||||||||||||||||| calling it ||||||||||||||||||||||||')
                 recursive_overlap_checking(files, index + 1, new_blocks, report + name + '\t' + str(block) + '\n', new_name, min_depth)
-            # else:
-                # print('||||||||||||||||||| not called ||||||||||||||||||||||||')
         
-parser = argparse.ArgumentParser(description='Process chromeister matrices in order to find coincidences.')
+parser = argparse.ArgumentParser(description='Process chromeister csv in order to find coincidences.')
 parser.add_argument('input_filename', type = str, nargs = 1, help = 'Input filename containing paths to matrix files')
-parser.add_argument('min_depth', default = -1, type = int, nargs = 1, help = 'Blocks minimum depth. Default value is the number of filenames in the input file.')
+parser.add_argument('--min_depth', default = -1, type = int, nargs = 1, help = 'Blocks minimum depth. Default value is the number of filenames in the input file.')
 args = parser.parse_args()
 
 input_filename = args.input_filename[0]
@@ -80,7 +67,4 @@ if min_depth == -1:
     min_depth = len(files)
 index = 0
 current_blocks = obtain_blocks(files[0])
-# for block in current_blocks:
-#     print(str(block))
-# print('_____')
 recursive_overlap_checking(files, index + 1, current_blocks, '', get_comparison_name(files[0]), min_depth)
