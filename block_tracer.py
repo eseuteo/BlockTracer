@@ -44,8 +44,8 @@ def get_comparison_name(path):
     path = path.split('/')
     return path[-1]
 
-def recursive_overlap_checking(files, index, current_blocks, report, name):
-    if index >= len(files):
+def recursive_overlap_checking(files, index, current_blocks, report, name, min_depth):
+    if index >= min_depth:
         for block in current_blocks:
             print(report + name + '\t' + str(block) + '\n')
     else:
@@ -63,22 +63,24 @@ def recursive_overlap_checking(files, index, current_blocks, report, name):
             # print('|||||||||||||||||||||||||||||||||||||||||||||||||||||||')
             if new_blocks != []:
                 # print('||||||||||||||||||| calling it ||||||||||||||||||||||||')
-                recursive_overlap_checking(files, index + 1, new_blocks, report + name + '\t' + str(block) + '\n', new_name)
+                recursive_overlap_checking(files, index + 1, new_blocks, report + name + '\t' + str(block) + '\n', new_name, min_depth)
             # else:
                 # print('||||||||||||||||||| not called ||||||||||||||||||||||||')
         
 parser = argparse.ArgumentParser(description='Process chromeister matrices in order to find coincidences.')
-parser.add_argument('input_filename', type = str, nargs = 1, help = 'input filename containing paths to matrix files')
-parser.add_argument('output_filename', type = str, nargs = 1, help = 'output filename')
+parser.add_argument('input_filename', type = str, nargs = 1, help = 'Input filename containing paths to matrix files')
+parser.add_argument('min_depth', default = -1, type = int, nargs = 1, help = 'Blocks minimum depth. Default value is the number of filenames in the input file.')
 args = parser.parse_args()
 
 input_filename = args.input_filename[0]
-output_filename = args.output_filename[0]
+min_depth = args.min_depth[0]
 
 files = [line.rstrip('\n') for line in open(input_filename)]
+if min_depth == -1:
+    min_depth = len(files)
 index = 0
 current_blocks = obtain_blocks(files[0])
 # for block in current_blocks:
 #     print(str(block))
 # print('_____')
-recursive_overlap_checking(files, index + 1, current_blocks, '', get_comparison_name(files[0]))
+recursive_overlap_checking(files, index + 1, current_blocks, '', get_comparison_name(files[0]), min_depth)

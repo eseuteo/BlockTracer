@@ -1,10 +1,6 @@
-# Recibe path ($1)
-# Recibe lista especies ($2)
+#!/bin/bash
 
-species_a=$(head -n 1 $2)
-for species in $(tail -n +2 $2); do
-    species_b=$species
-    comparisons_list=$(ls $species_a*$species_b*.csv)
-    hacer_algo_con_lista_comp
-    species_a=$species
+for file in $(ls $1); do
+	echo $file >> $2  
+	python3 block_tracer.py $1$file asd >> $2
 done
