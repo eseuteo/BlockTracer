@@ -10,10 +10,10 @@ def overlapped(block_a, block_b):
     return int(block_a[1]) <= int(block_b[2]) and int(block_b[0]) <= int(block_a[3])
 
 def overlap_coefficient(block_a, block_b):
-    x1 = int(block_a[1])
-    x2 = int(block_a[3])
-    y1 = int(block_b[0])
-    y2 = int(block_b[2])
+    x1 = int(block_a[0])
+    x2 = int(block_a[2])
+    y1 = int(block_b[1])
+    y2 = int(block_b[3])
     if (min(x2-x1, y2-y1) > 0):
         return 100 * (min(x2, y2) - max(x1, y1)) / min(x2-x1, y2-y1)
     else:
@@ -65,13 +65,9 @@ def compare_blocks(base_block, new_blocks_list):
         # if overlapped(base_block, block):
         if overlap_coefficient(base_block, block) > 80:
             if int(base_block[1]) > int(block[0]):
-                print((int(base_block[1]) - int(block[0])))
-                print(((int(base_block[1]) - int(block[0]))*1000//block[6]))
                 block[1] = str(int(block[1]) + ((int(base_block[1]) - int(block[0]))*block[7]//block[6]))
                 block[0] = base_block[1]
             if int(base_block[3]) < int(block[2]):
-                print((int(block[2]) - int(base_block[3])))
-                print(((int(block[2]) - int(base_block[3]))*1000//block[6]))
                 block[3] = str(int(block[3]) - ((int(block[2]) - int(base_block[3]))*block[7]//block[6]))
                 block[2] = base_block[3]
             block[4] = int(block[3]) - int(block[1])
