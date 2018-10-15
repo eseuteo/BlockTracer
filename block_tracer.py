@@ -14,10 +14,9 @@ def overlap_coefficient(block_a, block_b):
     x2 = int(block_a[2])
     y1 = int(block_b[1])
     y2 = int(block_b[3])
-    if (min(x2-x1, y2-y1) > 0):
-        return 100 * (min(x2, y2) - max(x1, y1)) / min(x2-x1, y2-y1)
-    else:
-        return 0
+    if (min(x2, y2) < max (x1, y1)):
+        return 0 #not overlaped
+    return 100 * (min(x2, y2) - max(x1, y1)) / min(x2-x1, y2-y1)
 
 def get_comparison_name(path):
     path = path.split('/')
@@ -26,14 +25,14 @@ def get_comparison_name(path):
 def scale(block):
     new_block = copy.deepcopy(block)
     for i in range(5):
-        length_index = 7 if i % 2 == 1 or i == 4 else 6
+        length_index = 6 if i % 2 == 1 or i == 4 else 7
         new_block[i] = str(int(int(block[i]) / block[length_index] * 1000))
     return new_block
 
 def unscale(block):
     new_block = copy.deepcopy(block)
     for i in range(5):
-        length_index = 7 if i % 2 == 1 or i == 4 else 6
+        length_index = 6 if i % 2 == 1 or i == 4 else 7
         new_block[i] = str(int(int(block[i]) * block[length_index] / 1000))
     return new_block
 
@@ -49,12 +48,8 @@ def obtain_blocks(file, index, name):
         event.append(length_x)
         event.append(length_y)
         event.append(name)
-        # print(event)
         event = unscale(event)
         events.append(event)
-        # for block in events:
-        #     print(block)
-        # print('---')
     return events
 
 def compare_blocks(base_block, new_blocks_list):
@@ -62,15 +57,19 @@ def compare_blocks(base_block, new_blocks_list):
     original_blocks = []
     for block in new_blocks_list:
         original_block = copy.deepcopy(block)
-        # if overlapped(base_block, block):
         if overlap_coefficient(base_block, block) > 80:
+            # Take only the overlapped part
             if int(base_block[1]) > int(block[0]):
                 block[1] = str(int(block[1]) + ((int(base_block[1]) - int(block[0]))*block[7]//block[6]))
                 block[0] = base_block[1]
             if int(base_block[3]) < int(block[2]):
                 block[3] = str(int(block[3]) - ((int(block[2]) - int(base_block[3]))*block[7]//block[6]))
                 block[2] = base_block[3]
-            block[4] = int(block[3]) - int(block[1])
+            # Blocks that are inversions of inverted transposition need y coordinates to be swapped
+            if 'inv' in block[5]:
+                block[1], block[3] = block[3], block[1]
+                original_block[1], original_block[3] = original_block[3], original_block[1]
+            block[4] = abs(int(block[1]) - int(block[3]))
             blocks.append(block)
             original_blocks.append(original_block)
     return blocks, original_blocks
@@ -90,12 +89,12 @@ def recursive_overlap_checking(files, index, current_blocks, current_original_bl
      
 parser = argparse.ArgumentParser(description='Process chromeister csv in order to find coincidences.')
 parser.add_argument('input_filename', type = str, nargs = 1, help = 'Input filename containing paths to matrix files')
-parser.add_argument('output_visualizer_filename', type = str, nargs = 1, help = 'Output filename for the visualizer')
+parser.add_argument('output_filename', type = str, nargs = 1, help = 'Output filename')
 parser.add_argument('--min_depth', default = -1, type = int, nargs = 1, help = 'Blocks minimum depth. Default value is the number of filenames in the input file.')
 args = parser.parse_args()
 
 input_filename = args.input_filename[0]
-output = args.output_visualizer_filename[0]
+output = args.output_filename[0]
 min_depth = args.min_depth[0]
 
 files = [line.rstrip('\n') for line in open(input_filename)]
