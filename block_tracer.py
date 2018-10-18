@@ -77,15 +77,17 @@ def compare_blocks(base_block, new_blocks_list):
 def recursive_overlap_checking(files, index, current_blocks, current_original_blocks, output_file, traced_block_info, min_depth):
     if index >= min_depth:
         for i in range(len(current_blocks)):
-            output_file.write(traced_block_info)
-            output_file.write(str(index-1) + '\t' + str(scale(current_blocks[i])[:-1]) + '\t' + str(scale(current_original_blocks[i])[:-1]) + '\n\n')
+            output_file += str(traced_block_info)
+            output_file += (str(index-1) + '\t' + str(scale(current_blocks[i])[:-1]) + '\t' + str(scale(current_original_blocks[i])[:-1]) + '\n\n')
     if index < len(files):
         new_name = get_comparison_name(files[index])
         new_comparison_blocks = obtain_blocks(files[index], index, new_name)
         for i in range(len(current_blocks)):
             new_blocks, new_original_blocks = compare_blocks(current_blocks[i], new_comparison_blocks)
             if new_blocks != []:
-                recursive_overlap_checking(files, index + 1, new_blocks, new_original_blocks, output_file, traced_block_info + str(index-1) + '\t' + str(scale(current_blocks[i])[:-1]) + '\t' + str(scale(current_original_blocks[i])[:-1]) + '\n', min_depth)
+                return recursive_overlap_checking(files, index + 1, new_blocks, new_original_blocks, output_file, traced_block_info + str(index-1) + '\t' + str(scale(current_blocks[i])[:-1]) + '\t' + str(scale(current_original_blocks[i])[:-1]) + '\n', min_depth)
+    else:
+        return output_file
      
 parser = argparse.ArgumentParser(description='Process chromeister csv in order to find coincidences.')
 parser.add_argument('input_filename', type = str, nargs = 1, help = 'Input filename containing paths to matrix files')
@@ -103,4 +105,5 @@ output_file.write('file_ID\ttraced_block\toriginal_block\n')
 if min_depth == -1:
     min_depth = len(files)
 current_blocks = obtain_blocks(files[0], 0, get_comparison_name(files[0]))
-recursive_overlap_checking(files, 1, current_blocks, current_blocks, output_file, '', min_depth)
+output_file = recursive_overlap_checking(files, 1, current_blocks, current_blocks, '', '', min_depth)
+print(output_file)
