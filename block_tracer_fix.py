@@ -1,25 +1,41 @@
 import argparse
 import copy
 
-class traced_block:
-    def __init__(self, x_species, y_species, x1, x2, y1, y2, next = None):
+class TracedBlock:
+    def __init__(self, x_species, x_chromosome, x1, x2, y_species, y_chromosome, y1, y2, next = None):
         self.x_species = x_species
-        self.y_species = y_species
+        self.x_chromosome = x_chromosome
         self.x1 = x1
         self.x2 = x2
+        self.y_species = y_species
+        self.y_chromosome = y_chromosome
         self.y1 = y1
         self.y2 = y2
         self.next = next
 
-def check_inversion(event):
-    if event[0] > event[2]:
-        event[0], event[2] = event[2], event[0]
-    if event[1] > event[3]:
-        event[1], event[3] = event[3], event[1]
-    return event
+    def get_last(self):
+        if self.next is None:
+            return self
+        else:
+            return self.next.get_last()
+    
+    def get_length(self):
+        length = 1
+        if self.next is None:
+            return length
+        else:
+            return self.next.get_length() + 1
 
-def overlapped(block_a, block_b):
-    return int(block_a[1]) <= int(block_b[2]) and int(block_b[0]) <= int(block_a[3])
+def get_block_csv(b):
+    return f"{b.x_species},{b.x_chromosome},{b.x1},{b.x2},{b.y_species},{b.y_chromosome},{b.y1},{b.y2}"
+
+def obtain_names(filename):
+    _filename = filename.split('-')
+    return _filename[0][0:5], _filename[1][0:5]
+
+def obtain_chromosomes(filename):
+    _filename = filename.split('-')
+    return _filename[0].split('.')[2], _filename[1].split('.')[2]
 
 def overlap_coefficient(block_a, block_b):
     x1 = int(block_a[0])
@@ -34,20 +50,6 @@ def get_comparison_name(path):
     path = path.split('/')
     return path[-1]
 
-def scale(block):
-    new_block = copy.deepcopy(block)
-    for i in range(5):
-        length_index = 6 if i % 2 == 1 or i == 4 else 7
-        new_block[i] = str(int(int(block[i]) / block[length_index] * 1000))
-    return new_block
-
-def unscale(block):
-    new_block = copy.deepcopy(block)
-    for i in range(5):
-        length_index = 6 if i % 2 == 1 or i == 4 else 7
-        new_block[i] = int(int(block[i]) * block[length_index] / 1000)
-    return new_block
-
 def obtain_blocks(file, index, name):
     events = []
     file_events = [line.rstrip('\n') for line in open(file)]
@@ -56,52 +58,12 @@ def obtain_blocks(file, index, name):
     event_list = file_events[2:-1]
     for line in event_list:
         event = line.split(",")
-        #event = check_inversion(event)
         event.append(length_x)
         event.append(length_y)
         event.append(name)
-        event = unscale(event)
+        event[0], event[1], event[2], event[3] = int(event[0]), int(event[1]), int(event[2]), int(event[3])
         events.append(event)
     return events
-
-def compare_blocks(base_block, new_blocks_list):
-    blocks = []
-    original_blocks = []
-    for block in new_blocks_list:
-        original_block = copy.deepcopy(block)
-        if overlap_coefficient(base_block, block) > 80:
-            # Take only the overlapped part
-            if int(base_block[1]) > int(block[0]):
-                block[1] = str(int(block[1]) + ((int(base_block[1]) - int(block[0]))*block[7]//block[6]))
-                block[0] = base_block[1]
-            if int(base_block[3]) < int(block[2]):
-                block[3] = str(int(block[3]) - ((int(block[2]) - int(base_block[3]))*block[7]//block[6]))
-                block[2] = base_block[3]
-            # Blocks that are inversions of inverted transposition need y coordinates to be swapped
-            if 'inv' in block[5]:
-                block[1], block[3] = block[3], block[1]
-                original_block[1], original_block[3] = original_block[3], original_block[1]
-            block[4] = abs(int(block[1]) - int(block[3]))
-            blocks.append(block)
-            original_blocks.append(original_block)
-    return blocks, original_blocks
-
-def recursive_overlap_checking(files, index, current_blocks, current_original_blocks, output_file, traced_block_info, min_depth):
-    if index >= min_depth:
-        for i in range(len(current_blocks)):
-            output_file += str(traced_block_info)
-            output_file += (str(index-1) + '\t' + str(scale(current_blocks[i])[:-1]) + '\t' + str(scale(current_original_blocks[i])[:-1]) + '\n\n')
-            print(output_file)
-    if index < len(files):
-        new_name = get_comparison_name(files[index])
-        new_comparison_blocks = obtain_blocks(files[index], index, new_name)
-        for i in range(len(current_blocks)):
-            new_blocks, new_original_blocks = compare_blocks(current_blocks[i], new_comparison_blocks)
-            if new_blocks != []:
-                return recursive_overlap_checking(files, index + 1, new_blocks, new_original_blocks, output_file, traced_block_info + str(index-1) + '\t' + str(scale(current_blocks[i])[:-1]) + '\t' + str(scale(current_original_blocks[i])[:-1]) + '\n', min_depth)
-    else:
-        print(output_file)
-        return output_file
 
 def related(block_a, block_b):
     return overlap_coefficient(block_a, block_b) > 95
@@ -131,7 +93,12 @@ def take_overlapping_part(block_a, block_b):
         new_block[3] = block_a[2]
     new_block[-1] = block_b[-1]
     return new_block
-     
+
+###########################
+#   Block Tracer Main     #
+###########################
+
+# Argument parsing     
 parser = argparse.ArgumentParser(description='Process chromeister csv in order to find coincidences.')
 parser.add_argument('input_filename', type = str, nargs = 1, help = 'Input filename containing paths to matrix files')
 parser.add_argument('output_filename', type = str, nargs = 1, help = 'Output filename')
@@ -142,12 +109,8 @@ input_filename = args.input_filename[0]
 output = args.output_filename[0]
 min_depth = args.min_depth[0]
 
-output_file = open(output, 'w')
-output_file.write('Species\tChromosome\tStart\tEnd\tLength\n')
-
+# Obtain blocks available in every input file
 files = [line.rstrip('\n') for line in open(input_filename)]
-current_blocks = obtain_blocks(files[0], 0, get_comparison_name(files[0]))
-
 list_of_list_of_blocks = []
 i = 0
 for file in files:
@@ -155,10 +118,12 @@ for file in files:
     list_of_list_of_blocks.append(list_of_blocks)
     i += 1
 
+# Create final list
 list_storage = []
 list_storage.append(list_of_list_of_blocks)
 current_list_len = len(list_of_list_of_blocks)
     
+# Check overlap between blocks
 while current_list_len > 1:
     i = 0
     new_list_of_list_of_blocks = []
@@ -177,12 +142,59 @@ while current_list_len > 1:
     list_of_list_of_blocks = new_list_of_list_of_blocks
     current_list_len = len(list_of_list_of_blocks)
 
-for list_of_lists in list_storage:
-    for list_of_blocks in list_of_lists:
+# Create actual traced blocks
+# Firstly, the first element of the linked lists
+traced_blocks_list = []
+for list_of_blocks in list_storage[0]:
+    for block in list_of_blocks:
+        x_name, y_name = obtain_names(block[-1])
+        x_chromosome, y_chromosome = obtain_chromosomes(block[-1])
+        traced_blocks_list.append(TracedBlock(x_name, x_chromosome, block[1], block[3], y_name, y_chromosome, block[0], block[2]))
+
+# Secondly, the linked lists are filled
+i = 1
+while (i < len(list_storage)):
+    for list_of_blocks in list_storage[i]:
         for block in list_of_blocks:
-            print(scale(block))
-    print("\n")
-print('---')
+            x_name, y_name = obtain_names(block[-1])
+            x_chromosome, y_chromosome = obtain_chromosomes(block[-1])
+            current_traced_block = TracedBlock(x_name, x_chromosome, block[1], block[3], y_name, y_chromosome, block[0], block[2])
+            list_to_add_to_traced_blocks_list = []
+            for traced_block in traced_blocks_list:
+                last_block_traced = traced_block.get_last()
+                if last_block_traced.y_species == current_traced_block.x_species:
+                    list_to_add_to_traced_blocks_list.append(copy.deepcopy(traced_block))
+                    last_block_traced.next = current_traced_block
+            traced_blocks_list += list(set(list_to_add_to_traced_blocks_list))
+    i += 1
+
+# Filter regarding input min depth
+traced_blocks_list = [x for x in traced_blocks_list if x.get_length() >= min_depth]
+
+# Prepare csv lines and filter repeated traced blocks
+i = 0
+traced_blocks_set = set()
+for traced_block in traced_blocks_list:
+    current_block = traced_block
+    text_for_traced_block = get_block_csv(current_block)
+    text_for_traced_block += "\n"
+    while not current_block.next is None:
+        text_for_traced_block += get_block_csv(current_block.next)
+        text_for_traced_block += "\n"
+        current_block = current_block.next
+    i += 1
+    traced_blocks_set.add(text_for_traced_block)
+    
+# Write resulting traced blocks to output file
+output_file = open(output, 'w')
+output_file.write('Block,SpeciesX,ChromosomeX,StartX,EndX,SpeciesY,ChromosomesY,StartY,EndY\n')
+i = 0
+for element in traced_blocks_set:
+    element = element.split('\n')
+    element = element[:-1]
+    for block in element:
+        output_file.write(str(i) + ',' + block + '\n')
+    i += 1
     
             
 
