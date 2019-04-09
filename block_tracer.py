@@ -32,14 +32,12 @@ def get_block_csv(b):
     return f"{b.x_species},{b.x_chromosome},{b.x1},{b.x2},{b.y_species},{b.y_chromosome},{b.y1},{b.y2}"
 
 # Obtaining the species names
-def obtain_names(filename):
-    _filename = filename.split('-')
-    return _filename[0][0:5], _filename[1][0:5]
+def obtain_names(b):
+    return b[0], b[2]
 
 # Obtaining the species chromosomes
-def obtain_chromosomes(filename):
-    _filename = filename.split('-')
-    return _filename[0].split('.')[2], _filename[1].split('.')[2]
+def obtain_chromosomes(b):
+    return b[1], b[3]
 
 # Obtaining overlap coefficient
 def overlap_coefficient(block_a, block_b):
@@ -57,17 +55,21 @@ def get_comparison_name(path):
     return path[-1]
 
 # Obtain blocks available in a comparison file
-def obtain_blocks(file, index, name):
+def obtain_blocks(file, index):
     events = []
-    file_events = [line.rstrip('\n') for line in open(file)]
-    length_x = int(file_events[0].split(',')[0])
-    length_y = int(file_events[0].split(',')[1])
-    event_list = file_events[2:-1]
+    file_events = file.split('\n')
+    species_x = file_events[0].split(',')[0]
+    chromosome_x = file_events[0].split(',')[1]
+    species_y = file_events[0].split(',')[2]
+    chromosome_y = file_events[0].split(',')[3]
+    length_x = int(file_events[1].split(',')[0])
+    length_y = int(file_events[1].split(',')[1])
+    event_list = file_events[3:-2]
     for line in event_list:
         event = line.split(",")
         event.append(length_x)
         event.append(length_y)
-        event.append(name)
+        event.append([species_x, chromosome_x, species_y, chromosome_y])
         event[0], event[1], event[2], event[3] = int(event[0]), int(event[1]), int(event[2]), int(event[3])
         events.append(event)
     return events
@@ -120,11 +122,23 @@ output = args.output_filename[0]
 min_depth = args.min_depth[0]
 
 # Obtain blocks available in every input file
-files = [line.rstrip('\n') for line in open(input_filename)]
+files = []
+current_file = ""
+with open(input_filename, 'r') as ifn:
+    line = ifn.readline()
+    while(line):
+        if 'Null event' in line:
+            current_file += line
+            files.append(current_file)
+            current_file = ""
+        else:
+            current_file += line
+        line = ifn.readline()
+
 list_of_list_of_blocks = []
 i = 0
 for file in files:
-    list_of_blocks = obtain_blocks(file, i, get_comparison_name(file))
+    list_of_blocks = obtain_blocks(file, i)
     list_of_list_of_blocks.append(list_of_blocks)
     i += 1
 
