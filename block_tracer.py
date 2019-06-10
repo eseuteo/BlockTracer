@@ -3,29 +3,18 @@ import copy
 
 # Class for making linked list of blocks (the traced and related blocks)
 class TracedBlock:
-    def __init__(self, x_species, x_chromosome, x1, x2, y_species, y_chromosome, y1, y2, next = None):
+    def __init__(self, x_species, x_chromosome, x_len, x1, x2, y_species, y_chromosome, y_len, y1, y2, report = ""):
         self.x_species = x_species
         self.x_chromosome = x_chromosome
-        self.x1 = x1
-        self.x2 = x2
+        self.x_len = x_len
+        self.x1 = min(x1, x2)
+        self.x2 = max(x1, x2)
         self.y_species = y_species
         self.y_chromosome = y_chromosome
-        self.y1 = y1
-        self.y2 = y2
-        self.next = next
-
-    def get_last(self):
-        if self.next is None:
-            return self
-        else:
-            return self.next.get_last()
-    
-    def get_length(self):
-        length = 1
-        if self.next is None:
-            return length
-        else:
-            return self.next.get_length() + 1
+        self.y_len = y_len
+        self.y1 = min(y1, y2)
+        self.y2 = max(y1, y2)
+        self.report = report
 
 # Obaining the line of text to be included in the csv
 def get_block_csv(b):
@@ -41,10 +30,10 @@ def obtain_chromosomes(b):
 
 # Obtaining overlap coefficient
 def overlap_coefficient(block_a, block_b):
-    x1 = int(block_a[0])
-    x2 = int(block_a[2])
-    y1 = int(block_b[1])
-    y2 = int(block_b[3])
+    x1 = block_a.y1
+    x2 = block_a.y2
+    y1 = block_b.x1
+    y2 = block_b.x2
     if (min(x2, y2) < max (x1, y1)):
         return 0 #not overlaped
     return 100 * (min(x2, y2) - max(x1, y1)) / min(x2-x1, y2-y1)
@@ -71,40 +60,28 @@ def obtain_blocks(file, index):
         event.append(length_y)
         event.append([species_x, chromosome_x, species_y, chromosome_y])
         event[0], event[1], event[2], event[3] = int(event[0]), int(event[1]), int(event[2]), int(event[3])
-        events.append(event)
+        current_traced_block = TracedBlock(species_x, chromosome_x, length_x, int(event[0]), int(event[2]), species_y, chromosome_y, length_y, int(event[1]), int(event[3]))
+        current_traced_block.report = (str(vars(current_traced_block)))
+        events.append(current_traced_block)
+        # print(vars(current_traced_block))
+        del current_traced_block
     return events
 
 # Determine if the overlap coefficient is higher than a certain threshold
 def related(block_a, block_b):
-    return overlap_coefficient(block_a, block_b) > 95
+    return overlap_coefficient(block_a, block_b) > 50
 
-# Determine if a block is a kind of inversion
-def is_inverted(block):
-    return block[0] < block[2]
-
-# Take just the overlapping part of the traced block
-def take_overlapping_part(block_a, block_b):
+def merge_blocks(block_a, block_b):
     new_block = copy.deepcopy(block_b)
-    scale_index = 0; factor = 1
-    if is_inverted(new_block):
-        scale_index = scale_index+2
-        factor = -1*factor
-    # Left Edge
-    lb1 = block_b[3] - block_b[1]
-    lb2 = block_b[2] - block_b[0]
-    if block_a[0] > block_b[1]:
-        d1 = block_a[0] - block_b[1]
-        scaling = int(d1 * lb2 / lb1)
-        new_block[0+scale_index] = block_b[0 + scale_index] + factor * scaling
-        new_block[1] = block_b[0]
-    # Right Edge
-    if block_a[2] < block_b[3]:
-        d2 = block_b[3] - block_a[2]
-        scaling = int( d2 * lb2 / lb1 )
-        new_block[2-scale_index] = block_b[2 - scale_index] - factor * scaling
-        new_block[3] = block_a[2]
-    new_block[-1] = block_b[-1]
+    new_block.report = ''
+    new_block.report = block_a.report + "APPEND" + str(vars(new_block))
+    new_block.x1 = max(block_a.y1, block_b.x1)
+    new_block.x2 = min(block_a.y2, block_b.x2)
+    new_block.y_len = block_b.y_len
     return new_block
+
+def adapt(block_a, i):
+    return str(i) + "," + block_a['x_species']+ "," + block_a['x_chromosome']+ "," + str(block_a['x1'])+ "," + str(block_a['x2'])+ "," + block_a['y_species']+ "," + block_a['y_chromosome']+ "," + str(block_a['y1'])+ "," + str(block_a['y2'])
 
 ###########################
 #   Block Tracer Main     #
@@ -142,84 +119,39 @@ for file in files:
     list_of_list_of_blocks.append(list_of_blocks)
     i += 1
 
-# Create final list
-list_storage = []
-list_storage.append(list_of_list_of_blocks)
-current_list_len = len(list_of_list_of_blocks)
-    
-# Check overlap between blocks
-while current_list_len > 1:
-    i = 0
-    new_list_of_list_of_blocks = []
-    while i < len(list_of_list_of_blocks) - 1:
-        list_of_blocks_a = list_of_list_of_blocks[i]
-        list_of_blocks_b = list_of_list_of_blocks[i+1]
-        resulting_list_of_blocks = []
-        for block_a in list_of_blocks_a:
-            for block_b in list_of_blocks_b:
-                if related(block_a, block_b):
-                    new_block = take_overlapping_part(block_a, block_b)
-                    resulting_list_of_blocks.append(new_block)
-        new_list_of_list_of_blocks.append(resulting_list_of_blocks)
-        i += 1
-    list_storage.append(new_list_of_list_of_blocks)
-    list_of_list_of_blocks = new_list_of_list_of_blocks
-    current_list_len = len(list_of_list_of_blocks)
+j=0
+print("Block,SpeciesX,ChromosomeX,StartX,EndX,SpeciesY,ChromosomesY,StartY,EndY")
 
-# Create actual traced blocks
-# Firstly, the first element of the linked lists
-traced_blocks_list = []
-for list_of_blocks in list_storage[0]:
-    for block in list_of_blocks:
-        x_name, y_name = obtain_names(block[-1])
-        x_chromosome, y_chromosome = obtain_chromosomes(block[-1])
-        traced_blocks_list.append(TracedBlock(x_name, x_chromosome, block[1], block[3], y_name, y_chromosome, block[0], block[2]))
+while len(list_of_list_of_blocks) > 1:
+    list_a = list_of_list_of_blocks.pop(0)
+    list_b = list_of_list_of_blocks.pop(0)
+    list_c = []
 
-# Secondly, the linked lists are filled
-i = 1
-while (i < len(list_storage)):
-    for list_of_blocks in list_storage[i]:
-        for block in list_of_blocks:
-            x_name, y_name = obtain_names(block[-1])
-            x_chromosome, y_chromosome = obtain_chromosomes(block[-1])
-            current_traced_block = TracedBlock(x_name, x_chromosome, block[1], block[3], y_name, y_chromosome, block[0], block[2])
-            list_to_add_to_traced_blocks_list = []
-            for traced_block in traced_blocks_list:
-                last_block_traced = traced_block.get_last()
-                if last_block_traced.y_species == current_traced_block.x_species:
-                    list_to_add_to_traced_blocks_list.append(copy.deepcopy(traced_block))
-                    last_block_traced.next = current_traced_block
-            traced_blocks_list += list(set(list_to_add_to_traced_blocks_list))
-    i += 1
+    for block_a in list_a:
+        blocks = block_a.report.split("APPEND")
+        if len(blocks) > min_depth:
+            for block in blocks:
+                new_one = eval(block)
+                new_line = adapt(new_one, j)
+                print(new_line)
+            j += 1
 
-# Filter regarding input min depth
-traced_blocks_list = [x for x in traced_blocks_list if x.get_length() >= min_depth]
+    if len(list_a) < 1:
+        break
+    for block_a in list_a:
+        for block_b in list_b:
+            if related(block_a, block_b):
+                new_block = copy.deepcopy(block_b)
+                new_block.report = ''
+                new_block.report = block_a.report + "APPEND" + str(vars(new_block))
+                new_block.x1 = max(block_a.y1, block_b.x1)
+                list_c.append(new_block)
+    list_of_list_of_blocks.insert(0, list_c)
 
-# Prepare csv lines and filter repeated traced blocks
-i = 0
-traced_blocks_set = set()
-for traced_block in traced_blocks_list:
-    current_block = traced_block
-    text_for_traced_block = get_block_csv(current_block)
-    text_for_traced_block += "\n"
-    while not current_block.next is None:
-        text_for_traced_block += get_block_csv(current_block.next)
-        text_for_traced_block += "\n"
-        current_block = current_block.next
-    i += 1
-    traced_blocks_set.add(text_for_traced_block)
-    
-# Write resulting traced blocks to output file
-output_file = open(output, 'w')
-output_file.write('Block,SpeciesX,ChromosomeX,StartX,EndX,SpeciesY,ChromosomesY,StartY,EndY\n')
-i = 0
-for element in traced_blocks_set:
-    element = element.split('\n')
-    element = element[:-1]
-    for block in element:
-        output_file.write(str(i) + ',' + block + '\n')
-    i += 1
-    
-            
-
-
+for block_a in list_of_list_of_blocks[0]:
+    blocks = block_a.report.split("APPEND")
+    for block in blocks:
+        new_one = eval(block)
+        new_line = adapt(new_one, j)
+        print(new_line)
+    j += 1
